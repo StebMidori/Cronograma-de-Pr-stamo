@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cronograma de pagos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: formal, sobrio, como un documento financiero listo para firmar
+   IDEA: la hoja de cronograma que entrega una entidad al firmar un préstamo
+   PICTURE: la cuota mensual en grande junto a los datos, y el cronograma completo
+   COLOUR and TYPE: blanco y tinta casi negra, un solo acento verde azulado profundo; Public Sans
+   LAYOUT: datos y resultado arriba, resumen, tabla, bloque de firmas, botón PDF */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#121416);--ink:light-dark(#16191c,#e8eaec);--mut:light-dark(#5b6168,#9aa1a8);--line:light-dark(#dfe2e5,#2c3135);--soft:light-dark(#f4f6f7,#1b1f22);--acc:light-dark(#0e5a5c,#5fc1bd);--accInk:light-dark(#ffffff,#0b1f20)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Public Sans",system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px);max-width:1240px;margin:0 auto}
+h1{font-size:clamp(30px,4vw,42px);line-height:1.05;margin:0 0 6px;text-wrap:balance;font-weight:700}
+.sub{color:var(--mut);margin:0 0 28px}
+.top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:clamp(20px,3vw,40px);align-items:stretch}
+form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+fieldset{border:0;padding:0;margin:0;display:contents}
+label{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:500;color:var(--mut)}
+label.full{grid-column:1/-1}
+input{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:44px;width:100%}
+input:focus{outline:2px solid var(--acc);outline-offset:1px;border-color:var(--acc)}
+.grp{grid-column:1/-1;font-size:13px;font-weight:600;color:var(--ink);border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.res{background:var(--acc);color:var(--accInk);border-radius:14px;padding:clamp(20px,3vw,32px);display:flex;flex-direction:column;justify-content:space-between;gap:18px}
+.res .k{font-size:14px;opacity:.85}
+.big{font-size:clamp(40px,6vw,60px);font-weight:700;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;border-top:1px solid color-mix(in srgb,currentColor 30%,transparent);padding-top:16px}
+.facts b{display:block;font-size:18px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.facts span{font-size:13px;opacity:.85}
+.btn{font:inherit;font-weight:600;font-size:16px;min-height:48px;padding:0 22px;border-radius:10px;border:0;cursor:pointer;background:var(--accInk);color:var(--acc)}
+.btn:focus-visible{outline:3px solid var(--accInk);outline-offset:2px}
+.btn:disabled{opacity:.6;cursor:wait}
+.msg{font-size:13px;min-height:1.2em;margin:0}
+h2{font-size:22px;margin:0 0 14px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:15px}
+th,td{padding:9px 14px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+thead th{background:var(--soft);font-size:13px;font-weight:600;color:var(--mut);position:sticky;top:0}
+tbody tr:nth-child(even){background:color-mix(in srgb,var(--soft) 60%,transparent)}
+tfoot td{font-weight:700;border-bottom:0;border-top:2px solid var(--ink)}
+.signs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(24px,6vw,80px);margin-top:64px}
+.sig{border-top:1.5px solid var(--ink);padding-top:10px;text-align:center}
+.sig b{display:block;font-size:16px;min-height:1.5em}
+.sig span{display:block;font-size:13px;color:var(--mut)}
+.note{font-size:13px;color:var(--mut);margin-top:18px}
+@media(max-width:760px){.top{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){form{grid-template-columns:minmax(0,1fr)}table{font-size:13px}th,td{padding:8px 10px}.signs{grid-template-columns:minmax(0,1fr);gap:56px}}
+@media (prefers-reduced-motion:no-preference){.big{transition:opacity .2s}}
+</style>
+</head>
+<body>
+<main>
+<section class="band">
+  <h1>Cronograma de pagos del préstamo</h1>
+  <p class="sub">Método francés, con cuotas mensuales fijas. La tasa mensual se calcula a partir de la TCEA.</p>
+  <div class="top">
+    <form id="f" novalidate>
+      <label>Monto del préstamo (S/)<input id="monto" type="number" inputmode="decimal" min="1" step="0.01" value="10000"></label>
+      <label>TCEA (%)<input id="tcea" type="number" inputmode="decimal" min="0" step="0.01" value="15"></label>
+      <label>Plazo (meses)<input id="plazo" type="number" inputmode="numeric" min="1" max="360" step="1" value="12"></label>
+      <label>Fecha de desembolso<input id="fecha" type="date"></label>
+      <div class="grp">Personas que firman</div>
+      <label>El que presta (prestamista)<input id="nPresta" type="text" autocomplete="off" placeholder="Nombre completo"></label>
+      <label>DNI del prestamista<input id="dPresta" type="text" inputmode="numeric" autocomplete="off" placeholder="Opcional"></label>
+      <label>El que recibe (prestatario)<input id="nRecibe" type="text" autocomplete="off" placeholder="Nombre completo"></label>
+      <label>DNI del prestatario<input id="dRecibe" type="text" inputmode="numeric" autocomplete="off" placeholder="Opcional"></label>
+    </form>
+    <aside class="res" aria-live="polite">
+      <div>
+        <div class="k">Cuota mensual</div>
+        <div class="big" id="rCuota">—</div>
+      </div>
+      <div class="facts">
+        <div><b id="rTem">—</b><span>TEM (tasa mensual)</span></div>
+        <div><b id="rN">—</b><span>Número de cuotas</span></div>
+        <div><b id="rInt">—</b><span>Total de intereses</span></div>
+        <div><b id="rTot">—</b><span>Total a pagar</span></div>
+      </div>
+      <div>
+        <button class="btn" id="pdf" type="button">Descargar PDF para imprimir</button>
+        <p class="msg" id="msg"></p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<section class="band" style="padding-top:0">
+  <h2>Cronograma</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>N°</th><th>Vencimiento</th><th>Saldo inicial</th><th>Interés</th><th>Amortización</th><th>Cuota</th><th>Saldo final</th></tr></thead>
+      <tbody id="tb"></tbody>
+      <tfoot><tr><td>Total</td><td></td><td></td><td id="fInt"></td><td id="fAm"></td><td id="fCu"></td><td></td></tr></tfoot>
+    </table>
+  </div>
+  <p class="note">Las cuotas se redondean al céntimo y la última se ajusta para que el saldo final quede en cero. Este cálculo no incluye seguros, comisiones ni ITF.</p>
+
+  <div class="signs">
+    <div class="sig"><b id="sPresta"></b><span id="sdPresta"></span><span>El que presta (prestamista)</span></div>
+    <div class="sig"><b id="sRecibe"></b><span id="sdRecibe"></span><span>El que recibe (prestatario)</span></div>
+  </div>
+</section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+{
+const $ = id => document.getElementById(id);
+const ids = ['monto','tcea','plazo','fecha','nPresta','dPresta','nRecibe','dRecibe'];
+const nf = new Intl.NumberFormat('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const S = v => 'S/ ' + nf.format(v);
+const r2 = v => Math.round((v + Number.EPSILON) * 100) / 100;
+const pad = n => String(n).padStart(2,'0');
+const today = new Date();
+const iso = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+
+try { const s = JSON.parse(localStorage.getItem('cronograma-v1')||'{}'); ids.forEach(k => { if (s[k] != null) $(k).value = s[k]; }); } catch(e) {}
+if (!$('fecha').value) $('fecha').value = iso(today);
+
+function addMonths(base, m){
+  const y = base.getFullYear(), mo = base.getMonth() + m, d = base.getDate();
+  const last = new Date(y, mo + 1, 0).getDate();
+  return new Date(y, mo, Math.min(d, last));
+}
+const fmtD = d => pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+
+let plan = null;
+function calc(){
+  const P = parseFloat($('monto').value), T = parseFloat($('tcea').value)/100;
+  let n = parseInt($('plazo').value,10);
+  if (!(P>0) || !(T>=0) || !(n>=1)) return null;
+  n = Math.min(n,360);
+  const i = Math.pow(1+T,1/12)-1;
+  const cuota = r2(i===0 ? P/n : P*i/(1-Math.pow(1+i,-n)));
+  const fv = $('fecha').value; const base = fv ? new Date(fv+'T00:00:00') : today;
+  const rows = []; let saldo = r2(P), ti=0, ta=0, tc=0;
+  for (let k=1;k<=n;k++){
+    const int = r2(saldo*i);
+    let am = r2(cuota-int), cu = cuota;
+    if (k===n || am>saldo){ am = saldo; cu = r2(am+int); }
+    const fin = r2(saldo-am);
+    rows.push({k, f:fmtD(addMonths(base,k)), si:saldo, int, am, cu, sf:fin});
+    ti+=int; ta+=am; tc+=cu; saldo = fin;
+  }
+  return {P,T,i,n,cuota,rows,ti:r2(ti),ta:r2(ta),tc:r2(tc),desemb:fmtD(base)};
+}
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function render(){
+  const st = {}; ids.forEach(k => st[k] = $(k).value);
+  try { localStorage.setItem('cronograma-v1', JSON.stringify(st)); } catch(e) {}
+  $('sPresta').textContent = $('nPresta').value.trim();
+  $('sRecibe').textContent = $('nRecibe').value.trim();
+  $('sdPresta').textContent = $('dPresta').value.trim() ? 'DNI ' + $('dPresta').value.trim() : '';
+  $('sdRecibe').textContent = $('dRecibe').value.trim() ? 'DNI ' + $('dRecibe').value.trim() : '';
+  plan = calc();
+  if (!plan){
+    ['rCuota','rTem','rN','rInt','rTot'].forEach(k=>$(k).textContent='—');
+    $('tb').innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mut)">Ingresa un monto, una TCEA y un plazo válidos.</td></tr>';
+    ['fInt','fAm','fCu'].forEach(k=>$(k).textContent='');
+    $('pdf').disabled = true; return;
+  }
+  $('pdf').disabled = false;
+  $('rCuota').textContent = S(plan.cuota);
+  $('rTem').textContent = (plan.i*100).toFixed(4).replace('.',',') + '%';
+  $('rN').textContent = plan.n;
+  $('rInt').textContent = S(plan.ti);
+  $('rTot').textContent = S(plan.tc);
+  $('tb').innerHTML = plan.rows.map(r => `<tr><td>${r.k}</td><td>${r.f}</td><td>${esc(S(r.si))}</td><td>${esc(S(r.int))}</td><td>${esc(S(r.am))}</td><td>${esc(S(r.cu))}</td><td>${esc(S(r.sf))}</td></tr>`).join('');
+  $('fInt').textContent = S(plan.ti); $('fAm').textContent = S(plan.ta); $('fCu').textContent = S(plan.tc);
+}
+ids.forEach(k => $(k).addEventListener('input', render));
+$('f').addEventListener('submit', e => e.preventDefault());
+render();
+
+function buildPdf(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm',format:'a4'});
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 16;
+  const acc = [14,90,92];
+  doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(22,25,28);
+  doc.text('Cronograma de pagos del préstamo', M, 22);
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(91,97,104);
+  doc.text('Método francés, con cuotas mensuales fijas', M, 28);
+  doc.setDrawColor(...acc); doc.setLineWidth(0.6); doc.line(M, 32, W-M, 32);
+  const nP = $('nPresta').value.trim(), nR = $('nRecibe').value.trim();
+  const info = [
+    ['Prestamista', nP || '—', 'Monto del préstamo', S(plan.P)],
+    ['Prestatario', nR || '—', 'TCEA', nf.format(plan.T*100)+'%'],
+    ['Fecha de desembolso', plan.desemb, 'TEM', (plan.i*100).toFixed(4).replace('.',',')+'%'],
+    ['Número de cuotas', String(plan.n), 'Cuota mensual', S(plan.cuota)],
+    ['Total de intereses', S(plan.ti), 'Total a pagar', S(plan.tc)]
+  ];
+  doc.autoTable({startY:36, body:info, theme:'plain', margin:{left:M,right:M},
+    styles:{fontSize:9.5,cellPadding:{top:1.4,bottom:1.4,left:0,right:2},textColor:[22,25,28]},
+    columnStyles:{0:{textColor:[91,97,104],cellWidth:38},1:{fontStyle:'bold',cellWidth:54},2:{textColor:[91,97,104],cellWidth:36},3:{fontStyle:'bold'}}});
+  doc.autoTable({startY:doc.lastAutoTable.finalY+5, margin:{left:M,right:M},
+    head:[['N°','Vencimiento','Saldo inicial','Interés','Amortización','Cuota','Saldo final']],
+    body:plan.rows.map(r=>[r.k,r.f,S(r.si),S(r.int),S(r.am),S(r.cu),S(r.sf)]),
+    foot:[['Total','','',S(plan.ti),S(plan.ta),S(plan.tc),'']],
+    theme:'grid', showFoot:'lastPage',
+    styles:{fontSize:8.6,cellPadding:1.8,lineColor:[210,214,218],lineWidth:0.2,textColor:[22,25,28],halign:'right'},
+    headStyles:{fillColor:acc,textColor:255,fontStyle:'bold',halign:'center'},
+    footStyles:{fillColor:[236,240,241],textColor:[22,25,28],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[247,249,249]},
+    columnStyles:{0:{halign:'center',cellWidth:12},1:{halign:'center'}}
+  });
+  let y = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(8); doc.setTextColor(91,97,104);
+  doc.text('Cuotas redondeadas al céntimo; la última se ajusta para dejar el saldo en cero. No incluye seguros, comisiones ni ITF.', M, y);
+  if (y + 48 > H - 14){ doc.addPage(); y = 20; }
+  const ySig = y + 34, cw = (W - 2*M - 20)/2;
+  [[M, nP, $('dPresta').value.trim(), 'El que presta (prestamista)'],[M+cw+20, nR, $('dRecibe').value.trim(), 'El que recibe (prestatario)']].forEach(([x,n,d,rol])=>{
+    doc.setDrawColor(22,25,28); doc.setLineWidth(0.3); doc.line(x, ySig, x+cw, ySig);
+    let yy = ySig + 5;
+    doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(22,25,28);
+    if (n){ doc.text(n, x+cw/2, yy, {align:'center', maxWidth:cw}); yy += 5; }
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(91,97,104);
+    if (d){ doc.text('DNI ' + d, x+cw/2, yy, {align:'center'}); yy += 4.5; }
+    doc.text(rol, x+cw/2, yy, {align:'center'});
+  });
+  const pages = doc.internal.getNumberOfPages();
+  for (let p=1;p<=pages;p++){ doc.setPage(p); doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('Página '+p+' de '+pages, W-M, H-8, {align:'right'});
+    doc.text('Generado el '+fmtD(new Date()), M, H-8); }
+  return doc.output('blob');
+}
+
+const btn = $('pdf'), msg = $('msg');
+btn.addEventListener('click', () => {
+  if (!plan) return;
+  if (!window.jspdf){ msg.textContent = 'No se pudo cargar el generador de PDF. Revisa tu conexión a internet y recarga la página.'; return; }
+  btn.disabled = true; msg.textContent = 'Generando PDF…';
+  try {
+    const blob = buildPdf();
+    const who = ($('nRecibe').value.trim() || 'prestamo').replace(/[^\p{L}\p{N}]+/gu,'_').slice(0,60);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'Cronograma_' + who + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    msg.textContent = 'PDF descargado. Ábrelo e imprímelo desde tu visor.';
+  } catch(e) {
+    msg.textContent = 'No se pudo generar el PDF. Inténtalo de nuevo.';
+  } finally { btn.disabled = false; }
+});
+}
+</script>
+</body>
+</html>
